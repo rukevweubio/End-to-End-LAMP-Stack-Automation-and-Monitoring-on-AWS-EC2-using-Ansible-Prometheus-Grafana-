@@ -1,1 +1,13 @@
 
+[Unit]
+Description=MySQL Exporter
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=root
+Environment="DATA_SOURCE_NAME={{ mysql_user }}:{{ mysql_password }}@tcp({{ mysql_host }}:{{ mysql_port }})/"
+ExecStart={{ exporter_base_dir }}/mysqld_exporter-{{ mysql_exporter_version }}.linux-amd64/mysqld_exporter
+
+[Install]
+WantedBy=multi-user.target
