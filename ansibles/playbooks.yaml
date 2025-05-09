@@ -1,1 +1,201 @@
 
+
+- name: Install Prometheus, Grafana, Node Exporter, MySQL Exporter on single EC2
+  hosts: ec2
+  become: yes
+  vars:
+    prometheus_version: "2.45.0"
+    node_exporter_version: "1.5.0"
+    mysql_exporter_version: "0.15.1"
+    grafana_version: "10.1.5"
+    exporter_base_dir: "/opt/exporters"
+    mysql_user: "mysql"
+    mysql_password: "root"
+    mysql_host: "localhost"
+    mysql_port: "3306"
+
+  tasks:
+    - name: Update the apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install dependencies
+      apt:
+        name: ["wget", "unzip", "tar"]
+        state: present
+
+    - name: Create exporters directory
+      file:
+        path: "{{ exporter_base_dir }}"
+        state: directory
+        mode: '0755'
+
+    # Node Exporter Setup
+    - name: Download Node Exporter
+      get_url:
+        url: "https://github.com/prometheus/node_exporter/releases/download/v{{ node_exporter_version }}/node_exporter-{{ node_exporter_version }}.linux-amd64.tar.gz"
+        dest: "/tmp/node_exporter.tar.gz"
+
+    - name: Extract Node Exporter
+      unarchive:
+        src: "/tmp/node_exporter.tar.gz"
+        dest: "{{ exporter_base_dir }}"
+        remote_src: yes
+
+    - name: Create systemd service for Node Exporter
+      template:
+         src: /etc/ansible/template/node_exporter.service.j2
+         dest: /etc/systemd/system/node_exporter.service
+
+    - name: Enable and start Node Exporter
+      systemd:
+        name: node_exporter
+        enabled: yes
+        state: started
+
+    # MySQL Setup
+    - name: Start and enable MySQL
+      systemd:
+        name: mysql
+        enabled: yes
+        state: started
+
+    - name: Create MySQL user for exporter
+      mysql_user:
+        name: "{{ mysql_user }}"
+        password: "{{ mysql_password }}"
+        priv: "*.*:REPLICATION CLIENT,PROCESS,SELECT"
+        state: present
+        login_unix_socket: /var/run/mysqld/mysqld.sock
+
+    - name: Download MySQL Exporter
+      get_url:
+        url: "https://github.com/prometheus/mysqld_exporter/releases/download/v{{ mysql_exporter_version }}/mysqld_exporter-{{ mysql_exporter_version }}.linux-amd64.tar.gz"
+        dest: "/tmp/mysql_exporter.tar.gz"
+
+    - name: Extract MySQL Exporter
+      unarchive:
+        src: "/tmp/mysql_exporter.tar.gz"
+        dest: "{{ exporter_base_dir }}"
+        remote_src: yes
+
+    - name: Create systemd service for MySQL Exporter
+      template:
+        src: /etc/ansible/template/mysql_exporter.service.j2
+        dest: /etc/systemd/system/mysql_exporter.service
+        mode: '0644'
+
+    - name: Start and enable MySQL Exporter
+      systemd:
+        name: mysql_exporter
+        enabled: yes
+        state: started
+
+    # Prometheus Setup
+    - name: Create Prometheus directory
+      file:
+        path: "/opt/prometheus"
+        state: directory
+        mode: '0755'
+
+    - name: Download Prometheus
+      get_url:
+        url: "https://github.com/prometheus/prometheus/releases/download/v{{ prometheus_version }}/prometheus-{{ prometheus_version }}.linux-amd64.tar.gz"
+        dest: "/tmp/prometheus.tar.gz"
+
+    - name: Extract Prometheus
+      unarchive:
+        src: "/tmp/prometheus.tar.gz"
+        dest: "/opt/prometheus"
+        remote_src: yes
+
+    - name: Write Prometheus config
+      copy:
+        content: |
+          global:
+            scrape_interval: 15s
+
+          scrape_configs:
+            - job_name: 'node'
+              static_configs:
+                - targets: ['localhost:9100']
+            - job_name: 'mysql'
+              static_configs:
+                - targets: ['localhost:9104']
+        dest: "/opt/prometheus/prometheus-{{ prometheus_version }}.linux-amd64/prometheus.yml"
+        mode: '0644'
+
+    - name: Create systemd service for Prometheus
+      template:
+        src: /etc/ansible/template/prometheus.service.j2
+        dest: /etc/systemd/system/prometheus.service
+        mode: '0644'
+
+    - name: Start and enable Prometheus
+      systemd:
+        name: prometheus
+        enabled: yes
+        state: started
+
+    # Grafana Setup
+    - name: Add Grafana APT key
+      apt_key:
+        url: https://packages.grafana.com/gpg.key
+        state: present
+
+    - name: Add Grafana repository
+      apt_repository:
+        repo: deb https://packages.grafana.com/oss/deb stable main
+        state: present
+        filename: grafana
+
+    - name: Update apt cache for Grafana
+      apt:
+        update_cache: yes
+
+    - name: Install Grafana
+      apt:
+        name: grafana
+        state: present
+
+    - name: Enable and start Grafana
+      systemd:
+        name: grafana-server
+        enabled: yes
+        state: started
+
+    # Apache Log Scraping
+    - name: Create textfile collector directory
+      file:
+        path: /var/lib/node_exporter/textfile_collector
+        state: directory
+        mode: '0755'
+
+    - name: Create script to collect Apache logs
+      copy:
+        content: |
+          #!/bin/bash
+          LOG_FILE="/var/log/apache2/access.log"
+          LAST_LINES=$(tail -n 100 "$LOG_FILE")
+
+          REQUESTS=$(echo "$LAST_LINES" | grep -v "GET /server-status" | wc -l)
+          echo "apache_requests_total $REQUESTS" > /var/lib/node_exporter/textfile_collector/apache.prom
+
+          STATUS_2XX=$(echo "$LAST_LINES" | awk '$0 ~ /" 2[0-9][0-9] / {count++} END {print count+0}')
+          echo "apache_responses_2xx $STATUS_2XX" >> /var/lib/node_exporter/textfile_collector/apache.prom
+
+          STATUS_5XX=$(echo "$LAST_LINES" | awk '$0 ~ /" 5[0-9][0-9] / {count++} END {print count+0}')
+          echo "apache_responses_5xx $STATUS_5XX" >> /var/lib/node_exporter/textfile_collector/apache.prom
+        dest: "/usr/local/bin/apache_log_collector.sh"
+        mode: '0755'
+
+    - name: Create cron job for log collection
+      cron:
+        name: "Collect Apache logs"
+        minute: "*/1"
+        job: "/usr/local/bin/apache_log_collector.sh"
+
+    - name: Restart Node Exporter to load textfile collector
+      systemd:
+        name: node_exporter
+        state: restarted
