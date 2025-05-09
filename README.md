@@ -144,4 +144,9 @@ Grafana dashboards display:
 * CI/CD Pipeline: Integrate with GitHub Actions or Jenkins for automated deployments.
 * Containerization: Migrate to Docker or Kubernetes for portability and scalability.
 
+![ grafana metrix line graph](https://github.com/rukevweubio/End-to-End-LAMP-Stack-Automation-and-Monitoring-on-AWS-EC2-using-Ansible-Prometheus-Grafana-/blob/main/ansibles/picture/Screenshot%20(694).png)
 
+![ grafana metrix line graph](https://github.com/rukevweubio/End-to-End-LAMP-Stack-Automation-and-Monitoring-on-AWS-EC2-using-Ansible-Prometheus-Grafana-/blob/main/ansibles/picture/Screenshot%20(695).png)
+
+
+![ grafana metrix line graph](https://github.com/rukevweubio/End-to-End-LAMP-Stack-Automation-and-Monitoring-on-AWS-EC2-using-Ansible-Prometheus-Grafana-/blob/main/ansibles/picture/Screenshot%20(696).png)
