@@ -1,1 +1,13 @@
+[Unit]
+Description=Node Exporter
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=root
+ExecStart={{ exporter_base_dir }}/node_exporter-{{ node_exporter_version }}.linux-amd64/node_exporter \
+  --collector.textfile.directory=/var/lib/node_exporter/textfile_collector/
+
+[Install]
+WantedBy=multi-user.target
 
