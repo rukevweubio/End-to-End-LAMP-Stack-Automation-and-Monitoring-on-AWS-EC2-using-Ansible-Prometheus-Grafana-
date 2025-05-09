@@ -26,6 +26,12 @@ The solution uses Ansible to orchestrate the deployment and configuration proces
 * Install Grafana and configure dashboards for visualizing metrics.
 * Secure the setup (e.g., MySQL root password, firewall rules).
 
+  ![networ server  node expoter](https://github.com/rukevweubio/End-to-End-LAMP-Stack-Automation-and-Monitoring-on-AWS-EC2-using-Ansible-Prometheus-Grafana-/blob/main/ansibles/picture/Screenshot%20(692).png)
+
+    ![networ server grafana](https://github.com/rukevweubio/End-to-End-LAMP-Stack-Automation-and-Monitoring-on-AWS-EC2-using-Ansible-Prometheus-Grafana-/blob/main/ansibles/picture/Screenshot%20(691).png)
+
+![networ server](https://github.com/rukevweubio/End-to-End-LAMP-Stack-Automation-and-Monitoring-on-AWS-EC2-using-Ansible-Prometheus-Grafana-/blob/main/ansibles/picture/Screenshot%20(686).png)
+
 
 # Monitoring Setup:
 Configure Prometheus to scrape metrics from the node exporter (system metrics) and Apache exporter (web server metrics), and integrate with Grafana for visualization.
